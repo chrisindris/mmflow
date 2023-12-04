@@ -32,16 +32,18 @@ class DeconvModule(BaseModule):
             Default: None.
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 kernel_size: Tuple[int, ...] = 4,
-                 stride: Tuple[int, ...] = 2,
-                 padding: Tuple[int, ...] = 1,
-                 dilation: Tuple[int, ...] = 1,
-                 bias: bool = False,
-                 norm_cfg: Optional[dict] = None,
-                 act_cfg: Optional[dict] = None) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: Tuple[int, ...] = 4,
+        stride: Tuple[int, ...] = 2,
+        padding: Tuple[int, ...] = 1,
+        dilation: Tuple[int, ...] = 1,
+        bias: bool = False,
+        norm_cfg: Optional[dict] = None,
+        act_cfg: Optional[dict] = None,
+    ) -> None:
         super().__init__()
 
         deconvs = []
@@ -54,7 +56,9 @@ class DeconvModule(BaseModule):
                 stride=stride,
                 dilation=dilation,
                 padding=padding,
-                bias=bias))
+                bias=bias,
+            )
+        )
 
         if norm_cfg is not None:
             deconvs.append(build_norm_layer(norm_cfg, out_channels))
@@ -106,16 +110,18 @@ class BasicBlock(BaseModule):
             ConvModule. Default: None.
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 pred_channels: int,
-                 out_channels: Optional[int] = None,
-                 inter_channels: int = None,
-                 deconv_bias: bool = False,
-                 pred_bias: bool = False,
-                 upsample_bias: bool = False,
-                 norm_cfg: Optional[dict] = None,
-                 act_cfg: Optional[dict] = None) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        pred_channels: int,
+        out_channels: Optional[int] = None,
+        inter_channels: int = None,
+        deconv_bias: bool = False,
+        pred_bias: bool = False,
+        upsample_bias: bool = False,
+        norm_cfg: Optional[dict] = None,
+        act_cfg: Optional[dict] = None,
+    ) -> None:
         super().__init__()
         if inter_channels is None:
             self.pred_out = nn.Conv2d(
@@ -124,7 +130,8 @@ class BasicBlock(BaseModule):
                 kernel_size=3,
                 stride=1,
                 padding=1,
-                bias=pred_bias)
+                bias=pred_bias,
+            )
         else:
             pred_out = [
                 nn.Conv2d(
@@ -133,14 +140,16 @@ class BasicBlock(BaseModule):
                     kernel_size=3,
                     stride=1,
                     padding=1,
-                    bias=pred_bias),
+                    bias=pred_bias,
+                ),
                 nn.Conv2d(
                     in_channels=inter_channels,
                     out_channels=pred_channels,
                     kernel_size=3,
                     stride=1,
                     padding=1,
-                    bias=pred_bias)
+                    bias=pred_bias,
+                ),
             ]
             self.pred_out = nn.Sequential(*pred_out)
         self.up_sample = out_channels is not None
@@ -153,7 +162,8 @@ class BasicBlock(BaseModule):
                 padding=1,
                 bias=deconv_bias,
                 norm_cfg=norm_cfg,
-                act_cfg=act_cfg)
+                act_cfg=act_cfg,
+            )
 
             self.upsample_pred = DeconvModule(
                 in_channels=pred_channels,
@@ -161,10 +171,11 @@ class BasicBlock(BaseModule):
                 kernel_size=4,
                 stride=2,
                 padding=1,
-                bias=upsample_bias)
+                bias=upsample_bias,
+            )
 
     def forward(
-            self, x: torch.Tensor
+        self, x: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Forward function for basic block of FlowNetDecoder.
 
@@ -218,20 +229,21 @@ class FlowNetSDecoder(BaseDecoder):
             Default: None.
     """
 
-    def __init__(self,
-                 in_channels: Dict[str, int],
-                 out_channels: Dict[str, int],
-                 pred_channels: int = 2,
-                 flow_div: float = 20.,
-                 inter_channels: Optional[Sequence] = None,
-                 deconv_bias: bool = False,
-                 pred_bias: bool = False,
-                 upsample_bias: bool = False,
-                 norm_cfg: Optional[dict] = None,
-                 act_cfg: dict = dict(type='LeakyReLU', negative_slope=0.1),
-                 flow_loss: Optional[dict] = None,
-                 init_cfg=None) -> None:
-
+    def __init__(
+        self,
+        in_channels: Dict[str, int],
+        out_channels: Dict[str, int],
+        pred_channels: int = 2,
+        flow_div: float = 20.0,
+        inter_channels: Optional[Sequence] = None,
+        deconv_bias: bool = False,
+        pred_bias: bool = False,
+        upsample_bias: bool = False,
+        norm_cfg: Optional[dict] = None,
+        act_cfg: dict = dict(type="LeakyReLU", negative_slope=0.1),
+        flow_loss: Optional[dict] = None,
+        init_cfg=None,
+    ) -> None:
         super().__init__(init_cfg)
 
         self.decoders = nn.ModuleDict()
@@ -246,25 +258,30 @@ class FlowNetSDecoder(BaseDecoder):
 
         layers = []
         for level in self.flow_levels:
-            inter_ch = inter_channels.get(level) if isinstance(
-                inter_channels, dict) else inter_channels
-            layers.append([
-                level,
-                BasicBlock(
-                    in_channels=in_channels[level],
-                    pred_channels=pred_channels,
-                    inter_channels=inter_ch,
-                    out_channels=out_channels.get(level, None),
-                    deconv_bias=deconv_bias,
-                    pred_bias=pred_bias,
-                    upsample_bias=upsample_bias,
-                    norm_cfg=norm_cfg,
-                    act_cfg=act_cfg)
-            ])
+            inter_ch = (
+                inter_channels.get(level)
+                if isinstance(inter_channels, dict)
+                else inter_channels
+            )
+            layers.append(
+                [
+                    level,
+                    BasicBlock(
+                        in_channels=in_channels[level],
+                        pred_channels=pred_channels,
+                        inter_channels=inter_ch,
+                        out_channels=out_channels.get(level, None),
+                        deconv_bias=deconv_bias,
+                        pred_bias=pred_bias,
+                        upsample_bias=upsample_bias,
+                        norm_cfg=norm_cfg,
+                        act_cfg=act_cfg,
+                    ),
+                ]
+            )
         self.decoders = nn.ModuleDict(layers)
 
-    def forward(self, feat: Dict[str,
-                                 torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def forward(self, feat: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """Forward function for decoder of FlowNetS.
 
         Args:
@@ -280,7 +297,6 @@ class FlowNetSDecoder(BaseDecoder):
         upflow = None
 
         for level in self.flow_levels[::-1]:
-
             if level == self.start_level:
                 feat_ = feat[level]
             else:
@@ -292,11 +308,12 @@ class FlowNetSDecoder(BaseDecoder):
         return flow_pred
 
     def forward_train(
-            self,
-            *args,
-            flow_gt: Optional[torch.Tensor] = None,
-            valid: torch.Tensor = None,
-            return_multi_level_flow: bool = False) -> Dict[str, torch.Tensor]:
+        self,
+        *args,
+        flow_gt: Optional[torch.Tensor] = None,
+        valid: torch.Tensor = None,
+        return_multi_level_flow: bool = False
+    ) -> Dict[str, torch.Tensor]:
         """Forward function for decoder of FlowNetS when model training.
 
         Args:
@@ -357,20 +374,22 @@ class FlowNetSDecoder(BaseDecoder):
         flow_result = flow_pred[self.end_level]
         # resize flow to the size of images after augmentation.
         flow_result = F.interpolate(
-            flow_result, size=(H, W), mode='bilinear', align_corners=False)
+            flow_result, size=(H, W), mode="bilinear", align_corners=False
+        )
         # reshape [2, H, W] to [H, W, 2]
-        flow_result = flow_result.permute(0, 2, 3,
-                                          1).cpu().data.numpy() * self.flow_div
+        flow_result = flow_result.permute(0, 2, 3, 1).cpu().data.numpy() * self.flow_div
         # unravel batch dim
         flow_result = list(flow_result)
         flow_result = [dict(flow=f) for f in flow_result]
 
         return self.get_flow(flow_result, img_metas=img_metas)
 
-    def losses(self,
-               flow_pred: Dict[str, torch.Tensor],
-               flow_gt: torch.Tensor,
-               valid: torch.Tensor = None) -> Dict[str, torch.Tensor]:
+    def losses(
+        self,
+        flow_pred: Dict[str, torch.Tensor],
+        flow_gt: torch.Tensor,
+        valid: torch.Tensor = None,
+    ) -> Dict[str, torch.Tensor]:
         """The loss function for Flownet.
 
         Args:
@@ -382,7 +401,7 @@ class FlowNetSDecoder(BaseDecoder):
             Dict[str, Tensor]: The dict of losses.
         """
         loss = dict()
-        loss['loss_flow'] = self.flow_loss(flow_pred, flow_gt, valid)
+        loss["loss_flow"] = self.flow_loss(flow_pred, flow_gt, valid)
         return loss
 
 
@@ -393,8 +412,9 @@ class FlowNetCDecoder(FlowNetSDecoder):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def forward(self, feat1: Dict[str, torch.Tensor],
-                corr_feat: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def forward(
+        self, feat1: Dict[str, torch.Tensor], corr_feat: Dict[str, torch.Tensor]
+    ) -> Dict[str, torch.Tensor]:
         """Forward function for decoder of FlowNetS.
 
         Args:

@@ -5,6 +5,8 @@ import mmcv
 import numpy as np
 from mmcv import sparse_flow_from_bytes
 
+import zipfile
+
 from ..builder import PIPELINES
 from ..utils import flow_from_bytes
 
@@ -31,11 +33,13 @@ class LoadImageFromFile:
             'cv2'
     """
 
-    def __init__(self,
-                 to_float32: bool = False,
-                 color_type: str = 'color',
-                 file_client_args: dict = dict(backend='disk'),
-                 imdecode_backend: str = 'cv2') -> None:
+    def __init__(
+        self,
+        to_float32: bool = False,
+        color_type: str = "color",
+        file_client_args: dict = dict(backend="disk"),
+        imdecode_backend: str = "cv2",
+    ) -> None:
         super().__init__()
         self.to_float32 = to_float32
         self.color_type = color_type
@@ -55,20 +59,20 @@ class LoadImageFromFile:
         if self.file_client is None:
             self.file_client = mmcv.FileClient(**self.file_client_args)
 
-        filename1 = results['img_info']['filename1']
-        filename2 = results['img_info']['filename2']
+        filename1 = results["img_info"]["filename1"]
+        filename2 = results["img_info"]["filename2"]
         if (not osp.isfile(filename1)) or (not osp.isfile(filename2)):
-
-            raise RuntimeError(
-                f'Cannot load file from {filename1} or {filename2}')
+            raise RuntimeError(f"Cannot load file from {filename1} or {filename2}")
 
         img1_bytes = self.file_client.get(filename1)
         img2_bytes = self.file_client.get(filename2)
 
         img1 = mmcv.imfrombytes(
-            img1_bytes, flag=self.color_type, backend=self.imdecode_backend)
+            img1_bytes, flag=self.color_type, backend=self.imdecode_backend
+        )
         img2 = mmcv.imfrombytes(
-            img2_bytes, flag=self.color_type, backend=self.imdecode_backend)
+            img2_bytes, flag=self.color_type, backend=self.imdecode_backend
+        )
 
         assert img1 is not None
 
@@ -76,32 +80,101 @@ class LoadImageFromFile:
             img1 = img1.astype(np.float32)
             img2 = img2.astype(np.float32)
 
-        results['filename1'] = filename1
-        results['filename2'] = filename2
-        results['ori_filename1'] = osp.split(filename1)[-1]
-        results['ori_filename2'] = osp.split(filename2)[-1]
+        results["filename1"] = filename1
+        results["filename2"] = filename2
+        results["ori_filename1"] = osp.split(filename1)[-1]
+        results["ori_filename2"] = osp.split(filename2)[-1]
 
-        results['img1'] = img1
-        results['img2'] = img2
+        results["img1"] = img1
+        results["img2"] = img2
 
-        results['img_shape'] = img1.shape
-        results['ori_shape'] = img1.shape
+        results["img_shape"] = img1.shape
+        results["ori_shape"] = img1.shape
         # Set initial values for default meta_keys
-        results['pad_shape'] = img1.shape
-        results['scale_factor'] = np.array([1.0, 1.0])
+        results["pad_shape"] = img1.shape
+        results["scale_factor"] = np.array([1.0, 1.0])
         num_channels = 1 if len(img1.shape) < 3 else img1.shape[2]
-        results['img_norm_cfg'] = dict(
+        results["img_norm_cfg"] = dict(
             mean=np.zeros(num_channels, dtype=np.float32),
             std=np.ones(num_channels, dtype=np.float32),
-            to_rgb=False)
+            to_rgb=False,
+        )
         return results
 
     def __repr__(self) -> str:
         repr_str = self.__class__.__name__
-        repr_str += f'(to_float32={self.to_float32},'
+        repr_str += f"(to_float32={self.to_float32},"
         repr_str += f"color_type='{self.color_type}',"
         repr_str += f"imdecode_backend='{self.imdecode_backend}')"
         return repr_str
+
+
+@PIPELINES.register_module()
+class LoadImageFromZip(LoadImageFromFile):
+    def __init__(self, *args, data_root=None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.data_root = data_root
+
+    def __call__(self, results: dict) -> dict:
+        """Call function to load image and get image meta information.
+
+        Args:
+            results (dict): Result dict from :obj:`mmflow.BaseDataset`.
+
+        Returns:
+            dict: The dict contains loaded image and meta information.
+        """
+        if self.file_client is None:
+            self.file_client = mmcv.FileClient(**self.file_client_args)
+
+        filename1 = results["img_info"]["filename1"]
+        filename2 = results["img_info"]["filename2"]
+
+        video_name = osp.normpath(filename1).split(osp.sep)[1]
+
+        rgb_zipdata = zipfile.ZipFile(
+            osp.join(self.data_root, video_name, "img.zip"), "r"
+        )
+        img1_bytes = rgb_zipdata.read(filename1)
+        img2_bytes = rgb_zipdata.read(filename2)
+
+        img1 = mmcv.imfrombytes(
+            img1_bytes, flag=self.color_type, backend=self.imdecode_backend
+        )
+        img2 = mmcv.imfrombytes(
+            img2_bytes, flag=self.color_type, backend=self.imdecode_backend
+        )
+
+        # HACK: just to check the dimensions
+        img1 = img1[:64, :64, :]
+        img2 = img2[:64, :64, :]
+
+        assert img1 is not None
+
+        if self.to_float32:
+            img1 = img1.astype(np.float32)
+            img2 = img2.astype(np.float32)
+
+        results["filename1"] = filename1
+        results["filename2"] = filename2
+        results["ori_filename1"] = osp.split(filename1)[-1]
+        results["ori_filename2"] = osp.split(filename2)[-1]
+
+        results["img1"] = img1
+        results["img2"] = img2
+
+        results["img_shape"] = img1.shape
+        results["ori_shape"] = img1.shape
+        # Set initial values for default meta_keys
+        results["pad_shape"] = img1.shape
+        results["scale_factor"] = np.array([1.0, 1.0])
+        num_channels = 1 if len(img1.shape) < 3 else img1.shape[2]
+        results["img_norm_cfg"] = dict(
+            mean=np.zeros(num_channels, dtype=np.float32),
+            std=np.ones(num_channels, dtype=np.float32),
+            to_rgb=False,
+        )
+        return results
 
 
 @PIPELINES.register_module()
@@ -118,12 +191,11 @@ class LoadAnnotations:
     """
 
     def __init__(
-            self,
-            with_occ: bool = False,
-            sparse: bool = False,
-            file_client_args: dict = dict(backend='disk'),
+        self,
+        with_occ: bool = False,
+        sparse: bool = False,
+        file_client_args: dict = dict(backend="disk"),
     ) -> None:
-
         self.with_occ = with_occ
         self.sparse = sparse
         self.file_client_args = file_client_args
@@ -159,22 +231,20 @@ class LoadAnnotations:
         Returns:
             dict: The dict contains loaded annotation data.
         """
-        filenames = list(results['ann_info'].keys())
-        skip_len = len('filename_')
+        filenames = list(results["ann_info"].keys())
+        skip_len = len("filename_")
 
         for filename in filenames:
-
-            if filename.find('flow') > -1:
-
-                filename_flow = results['ann_info'][filename]
+            if filename.find("flow") > -1:
+                filename_flow = results["ann_info"][filename]
                 flow_bytes = self.file_client.get(filename_flow)
                 flow = flow_from_bytes(flow_bytes, filename_flow[-3:])
 
                 results[filename] = filename_flow
-                results['ori_' + filename] = osp.split(filename_flow)[-1]
-                ann_key = filename[skip_len:] + '_gt'
+                results["ori_" + filename] = osp.split(filename_flow)[-1]
+                ann_key = filename[skip_len:] + "_gt"
                 results[ann_key] = flow
-                results['ann_fields'].append(ann_key)
+                results["ann_fields"].append(ann_key)
 
         return results
 
@@ -187,24 +257,22 @@ class LoadAnnotations:
         Returns:
             dict: The dict contains loaded annotation data.
         """
-        filenames = list(results['ann_info'].keys())
-        skip_len = len('filename_')
+        filenames = list(results["ann_info"].keys())
+        skip_len = len("filename_")
 
         for filename in filenames:
-
-            if filename.find('flow') > -1:
-
-                filename_flow = results['ann_info'][filename]
+            if filename.find("flow") > -1:
+                filename_flow = results["ann_info"][filename]
                 flow_bytes = self.file_client.get(filename_flow)
                 flow, valid = sparse_flow_from_bytes(flow_bytes)
 
                 results[filename] = filename_flow
-                results['ori_' + filename] = osp.split(filename_flow)[-1]
-                ann_key = filename[skip_len:] + '_gt'
+                results["ori_" + filename] = osp.split(filename_flow)[-1]
+                ann_key = filename[skip_len:] + "_gt"
                 # sparse flow dataset don't include backward flow
-                results['valid'] = valid
+                results["valid"] = valid
                 results[ann_key] = flow
-                results['ann_fields'].append(ann_key)
+                results["ann_fields"].append(ann_key)
 
         return results
 
@@ -217,23 +285,22 @@ class LoadAnnotations:
         Returns:
             dict: The dict contains loaded annotation data.
         """
-        filenames = list(results['ann_info'].keys())
-        skip_len = len('filename_')
+        filenames = list(results["ann_info"].keys())
+        skip_len = len("filename_")
 
         for filename in filenames:
-
-            if filename.find('occ') > -1:
-
-                filename_occ = results['ann_info'][filename]
+            if filename.find("occ") > -1:
+                filename_occ = results["ann_info"][filename]
                 occ_bytes = self.file_client.get(filename_occ)
-                occ = (mmcv.imfrombytes(occ_bytes, flag='grayscale') /
-                       255).astype(np.float32)
+                occ = (mmcv.imfrombytes(occ_bytes, flag="grayscale") / 255).astype(
+                    np.float32
+                )
 
                 results[filename] = filename_occ
-                results['ori_' + filename] = osp.split(filename_occ)[-1]
-                ann_key = filename[skip_len:] + '_gt'
+                results["ori_" + filename] = osp.split(filename_occ)[-1]
+                ann_key = filename[skip_len:] + "_gt"
                 results[ann_key] = occ
-                results['ann_fields'].append(ann_key)
+                results["ann_fields"].append(ann_key)
 
         return results
 
@@ -256,23 +323,23 @@ class LoadImageFromWebcam(LoadImageFromFile):
             dict: The dict contains loaded image and meta information.
         """
 
-        img1 = results['img1']
-        img2 = results['img2']
+        img1 = results["img1"]
+        img2 = results["img2"]
         if self.to_float32:
             img1 = img1.astype(np.float32)
             img2 = img2.astype(np.float32)
 
-        results['filename1'] = None
-        results['ori_filename1'] = None
-        results['filename2'] = None
-        results['ori_filename2'] = None
-        results['img1'] = img1
-        results['img2'] = img2
-        results['img_shape'] = img1.shape
-        results['ori_shape'] = img1.shape
-        results['img_fields'] = ['img1', 'img2']
+        results["filename1"] = None
+        results["ori_filename1"] = None
+        results["filename2"] = None
+        results["ori_filename2"] = None
+        results["img1"] = img1
+        results["img2"] = img2
+        results["img_shape"] = img1.shape
+        results["ori_shape"] = img1.shape
+        results["img_fields"] = ["img1", "img2"]
         # Set initial values for default meta_keys
-        results['pad_shape'] = img1.shape
-        results['scale_factor'] = np.array([1.0, 1.0])
+        results["pad_shape"] = img1.shape
+        results["scale_factor"] = np.array([1.0, 1.0])
 
         return results
