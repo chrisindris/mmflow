@@ -1,5 +1,6 @@
 dataset_type = "Thumos14as"
-data_root = "/data/i5O/UCF101-THUMOS/THUMOS14/actionformer_subset_i3d_frames_pseudo/"
+# data_root = "/data/i5O/UCF101-THUMOS/THUMOS14/actionformer_subset_i3d_frames_all/"
+data_root = "/root/models/mmflow/tests/data/pseudo_thumos14as/"
 
 img_norm_cfg = dict(mean=[0.0, 0.0, 0.0], std=[255.0, 255.0, 255.0], to_rgb=False)
 
@@ -40,6 +41,6 @@ data = dict(
     train_dataloader=dict(
         samples_per_gpu=0, workers_per_gpu=0, drop_last=True, persistent_workers=True
     ),
-    test_dataloader=dict(samples_per_gpu=16, workers_per_gpu=8, shuffle=False),
+    test_dataloader=dict(samples_per_gpu=16, workers_per_gpu=4, shuffle=False),
     test=thumos14as_val_test,
 )

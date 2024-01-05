@@ -147,3 +147,6 @@ work_dir/
 # torchserve
 model_store/
 *.mar
+
+# test output
+tests/

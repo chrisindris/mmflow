@@ -10,6 +10,8 @@ import zipfile
 from ..builder import PIPELINES
 from ..utils import flow_from_bytes
 
+import cv2
+
 
 @PIPELINES.register_module()
 class LoadImageFromFile:
@@ -146,8 +148,12 @@ class LoadImageFromZip(LoadImageFromFile):
         )
 
         # HACK: just to check the dimensions
-        img1 = img1[:64, :64, :]
-        img2 = img2[:64, :64, :]
+        # img1 = img1[:128, :, :]
+        # img2 = img2[:128, :, :]
+        # print(img1.shape) # (180, 320, 3)
+        img1 = cv2.resize(img1, (320, 192))
+        img2 = cv2.resize(img2, (320, 192))
+        # print(img1.shape) (192, 320, 3)
 
         assert img1 is not None
 

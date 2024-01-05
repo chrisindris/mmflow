@@ -16,7 +16,7 @@ from mmflow import digit_version
 from mmflow.apis import multi_gpu_test, single_gpu_test
 from mmflow.core import online_evaluation
 from mmflow.datasets import build_dataloader, build_dataset
-from mmflow.datasets.utils.flow_io import write_flow, write_flow_kitti
+from mmflow.datasets.utils.flow_io import write_flow, write_flow_kitti, visualize_flow
 from mmflow.models import build_flow_estimator
 from mmflow.utils import get_root_logger, setup_multi_processes
 
@@ -210,7 +210,12 @@ def main():
                         if args.sparse_flow:
                             write_flow_kitti(output, f"flow_{i}.png")
                         else:
-                            write_flow(output, f"flow_{i}.flo")
+                            write_flow(
+                                output, os.path.join(args.out_dir, f"flow_{i}.flo")
+                            )
+                            visualize_flow(
+                                output, os.path.join(args.show_dir, f"flowmap_{i}.png")
+                            )
 
         if args.eval:
             dataset_name = dataset[i].__class__.__name__
