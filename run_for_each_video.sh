@@ -30,7 +30,7 @@ output_root="/data/i5O/flownet_out/"
 mkdir -p $output_root
 
 
-for vid in $(find $all_frames_folder -type d -name "*video*" | sort | tail -n 290); do
+for vid in $(find $all_frames_folder -type d -name "*video*" | sort | tail -n 161); do
 
   # ensure that there is at least 20GB of data left
   if [ $(expr $(df -B1 /data/ | awk 'NR==2 {print $4}') / 1000000000) -gt 20 ]; then

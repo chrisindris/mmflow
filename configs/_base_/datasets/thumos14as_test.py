@@ -1,6 +1,6 @@
 dataset_type = "Thumos14as"
 # data_root = "/data/i5O/UCF101-THUMOS/THUMOS14/actionformer_subset_i3d_frames_all/"
-data_root = "/root/models/mmflow/tests/data/pseudo_thumos14as/"
+data_root = "/data/i5O/THUMOS14/actionformer_subset_i3d_frames_all/"
 
 img_norm_cfg = dict(mean=[0.0, 0.0, 0.0], std=[255.0, 255.0, 255.0], to_rgb=False)
 

@@ -129,40 +129,6 @@ def main():
     # set multi-process settings
     setup_multi_processes(cfg)
 
-    # The overall dataloader settings
-    loader_cfg = {
-        k: v
-        for k, v in cfg.data.items()
-        if k
-        not in [
-            "train",
-            "val",
-            "test",
-            "train_dataloader",
-            "val_dataloader",
-            "test_dataloader",
-        ]
-    }
-    # The specific training dataloader settings
-    test_loader_cfg = {**loader_cfg, **cfg.data.get("test_dataloader", {})}
-
-    # build the dataloader
-    separate_eval = cfg.data.test.get("separate_eval", False)
-    if separate_eval:
-        # multi-datasets will be built as themselves.
-        dataset = [build_dataset(dataset) for dataset in cfg.data.test.datasets]
-    else:
-        # multi-datasets will be concatenated as one dataset.
-        dataset = [build_dataset(cfg.data.test)]
-    data_loader = [
-        build_dataloader(
-            _dataset,
-            **test_loader_cfg,
-            dist=distributed,
-        )
-        for _dataset in dataset
-    ]
-
     # build the model and load checkpoint
     model = build_flow_estimator(cfg.model)
     fp16_cfg = cfg.get("fp16", None)
@@ -194,39 +160,100 @@ def main():
 
     rank, _ = get_dist_info()
 
-    for i, i_data_loader in enumerate(data_loader):
-        if args.out_dir:
-            if not distributed:
-                outputs = single_gpu_test(
-                    model, i_data_loader, out_dir=args.out_dir, show_dir=args.show_dir
-                )
-            else:
-                outputs = multi_gpu_test(
-                    model, i_data_loader, args.tmpdir, args.gpu_collect
-                )
-                if rank == 0:
-                    print(f"\nwriting results to {args.out_dir}")
-                    for i, output in enumerate(outputs):
-                        if args.sparse_flow:
-                            write_flow_kitti(output, f"flow_{i}.png")
-                        else:
-                            write_flow(
-                                output, os.path.join(args.out_dir, f"flow_{i}.flo")
-                            )
-                            visualize_flow(
-                                output, os.path.join(args.show_dir, f"flowmap_{i}.png")
-                            )
+    # For each video, create the dataloader and run the experiment.
+    data_root = cfg.data.test.data_root
+    out_dir = args.out_dir
+    show_dir = args.show_dir
 
-        if args.eval:
-            dataset_name = dataset[i].__class__.__name__
-            if hasattr(dataset[i], "pass_style"):
-                dataset_name += f" {dataset[i].pass_style}"
-            print_log(
-                f"In {dataset_name} "
-                f"{online_evaluation(model, i_data_loader, metric=args.eval)}"
-                "\n",
-                logger=get_root_logger(),
+    videos = sorted(os.listdir(data_root))[285:315]
+
+    for video_subdir in videos:
+        if rank == 0:
+            print("video_subdir", video_subdir)
+        cfg.data.test.data_root = os.path.join(data_root, video_subdir)
+        args.out_dir = os.path.join(out_dir, "out_flow" + video_subdir[5:])
+        args.show_dir = os.path.join(show_dir, "out_flowmap" + video_subdir[5:])
+
+        if os.path.exists(args.out_dir):
+            if rank == 0:
+                print(video_subdir + " already done")
+            continue
+
+        os.makedirs(args.out_dir, exist_ok=True)
+        os.makedirs(args.show_dir, exist_ok=True)
+
+        # The overall dataloader settings
+        loader_cfg = {
+            k: v
+            for k, v in cfg.data.items()
+            if k
+            not in [
+                "train",
+                "val",
+                "test",
+                "train_dataloader",
+                "val_dataloader",
+                "test_dataloader",
+            ]
+        }
+        # The specific training dataloader settings
+        test_loader_cfg = {**loader_cfg, **cfg.data.get("test_dataloader", {})}
+
+        # build the dataloader
+        separate_eval = cfg.data.test.get("separate_eval", False)
+        if separate_eval:
+            # multi-datasets will be built as themselves.
+            dataset = [build_dataset(dataset) for dataset in cfg.data.test.datasets]
+        else:
+            # multi-datasets will be concatenated as one dataset.
+            dataset = [build_dataset(cfg.data.test)]
+        data_loader = [
+            build_dataloader(
+                _dataset,
+                **test_loader_cfg,
+                dist=distributed,
             )
+            for _dataset in dataset
+        ]
+
+        # perform the experiment
+        for i, i_data_loader in enumerate(data_loader):
+            if args.out_dir:
+                if not distributed:
+                    outputs = single_gpu_test(
+                        model,
+                        i_data_loader,
+                        out_dir=args.out_dir,
+                        show_dir=args.show_dir,
+                    )
+                else:
+                    outputs = multi_gpu_test(
+                        model, i_data_loader, args.tmpdir, args.gpu_collect
+                    )
+                    if rank == 0:
+                        print(f"\nwriting results to {args.out_dir}")
+                        for i, output in enumerate(outputs):
+                            if args.sparse_flow:
+                                write_flow_kitti(output, f"flow_{i}.png")
+                            else:
+                                write_flow(
+                                    output, os.path.join(args.out_dir, f"flow_{i}.flo")
+                                )
+                                visualize_flow(
+                                    output,
+                                    os.path.join(args.show_dir, f"flowmap_{i}.png"),
+                                )
+
+            if args.eval:
+                dataset_name = dataset[i].__class__.__name__
+                if hasattr(dataset[i], "pass_style"):
+                    dataset_name += f" {dataset[i].pass_style}"
+                print_log(
+                    f"In {dataset_name} "
+                    f"{online_evaluation(model, i_data_loader, metric=args.eval)}"
+                    "\n",
+                    logger=get_root_logger(),
+                )
 
 
 if __name__ == "__main__":

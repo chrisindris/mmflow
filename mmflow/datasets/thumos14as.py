@@ -48,6 +48,7 @@ class Thumos14as(BaseDataset):
             """
             data_filenames = []
             for video_dir in data_dir:
+                # print("video_dir", video_dir)
                 img_zip = zipfile.ZipFile(os.path.join(video_dir, "img.zip"), "r")
                 frames = [i for i in img_zip.namelist() if i.endswith(data_suffix)]
 
@@ -71,7 +72,8 @@ class Thumos14as(BaseDataset):
         self.img2_suffix = ".jpg"
 
         video_dirs = os.listdir(self.data_root)
+        # print("video_dirs", video_dirs)
 
         self.img1_dir = self.img2_dir = [
-            osp.join(self.data_root, video_dir) for video_dir in video_dirs
+            self.data_root  # osp.join(self.data_root, video_dir) for video_dir in video_dirs
         ]
