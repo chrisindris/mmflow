@@ -165,19 +165,14 @@ def main():
     out_dir = args.out_dir
     show_dir = args.show_dir
 
-    videos = sorted(os.listdir(data_root))[285:315]
+    videos = sorted(os.listdir(data_root))[255:285]
 
     for video_subdir in videos:
-        if rank == 0:
-            print("video_subdir", video_subdir)
+        # if rank == 0:
+        print("video_subdir, rank", video_subdir, rank)
         cfg.data.test.data_root = os.path.join(data_root, video_subdir)
         args.out_dir = os.path.join(out_dir, "out_flow" + video_subdir[5:])
         args.show_dir = os.path.join(show_dir, "out_flowmap" + video_subdir[5:])
-
-        if os.path.exists(args.out_dir):
-            if rank == 0:
-                print(video_subdir + " already done")
-            continue
 
         os.makedirs(args.out_dir, exist_ok=True)
         os.makedirs(args.show_dir, exist_ok=True)
@@ -207,6 +202,13 @@ def main():
         else:
             # multi-datasets will be concatenated as one dataset.
             dataset = [build_dataset(cfg.data.test)]
+
+        if os.path.exists(args.out_dir) and (
+            len(os.listdir(args.out_dir)) == len(dataset[0])
+        ):
+            print(video_subdir + " already done, rank ", rank)
+            continue
+
         data_loader = [
             build_dataloader(
                 _dataset,
@@ -227,8 +229,14 @@ def main():
                         show_dir=args.show_dir,
                     )
                 else:
+                    print(rank, " before multi_gpu_test")
                     outputs = multi_gpu_test(
                         model, i_data_loader, args.tmpdir, args.gpu_collect
+                    )
+                    print(
+                        rank,
+                        " after multi_gpu_test with len(outputs) = ",
+                        len(outputs) if outputs else "None",
                     )
                     if rank == 0:
                         print(f"\nwriting results to {args.out_dir}")
