@@ -20,7 +20,9 @@ class Thumos14as(BaseDataset):
             Default: None.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, out_dir, show_dir, **kwargs) -> None:
+        self.out_dir = out_dir
+        self.show_dir = show_dir
         super().__init__(*args, **kwargs)
 
     def load_data_info(self) -> None:

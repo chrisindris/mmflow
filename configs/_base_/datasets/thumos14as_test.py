@@ -30,6 +30,8 @@ thumos14as_test_pipeline = [
     ),
 ]
 
+test_pipeline = thumos14as_test_pipeline
+
 thumos14as_val_test = dict(
     type=dataset_type,
     data_root=data_root,
@@ -42,5 +44,9 @@ data = dict(
         samples_per_gpu=0, workers_per_gpu=0, drop_last=True, persistent_workers=True
     ),
     test_dataloader=dict(samples_per_gpu=16, workers_per_gpu=4, shuffle=False),
-    test=thumos14as_val_test,
+    test=dict(
+        type="ConcatDataset",
+        datasets=None,
+        separate_eval=True,
+    ),
 )
