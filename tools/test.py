@@ -160,7 +160,7 @@ def main():
 
     rank, _ = get_dist_info()
 
-    videos = sorted(os.listdir(cfg.data_root))[326:356]
+    videos = sorted(os.listdir(cfg.data_root))[336:350]
 
     cfg.data.test.datasets = [
         dict(
@@ -204,9 +204,11 @@ def main():
         for _dataset in cfg.data.test.datasets:
             built_dataset = build_dataset(_dataset)
 
-            if os.path.exists(built_dataset.data_root) and (
-                os.listdir(built_dataset.data_root) == len(built_dataset)
+            if os.path.exists(built_dataset.out_dir) and (
+                len(os.listdir(built_dataset.out_dir)) == len(built_dataset)
             ):
+                if rank == 0:
+                    print(os.path.basename(built_dataset.data_root), " already done")
                 continue
             else:
                 dataset.append(built_dataset)

@@ -43,7 +43,7 @@ data = dict(
     train_dataloader=dict(
         samples_per_gpu=0, workers_per_gpu=0, drop_last=True, persistent_workers=True
     ),
-    test_dataloader=dict(samples_per_gpu=16, workers_per_gpu=4, shuffle=False),
+    test_dataloader=dict(samples_per_gpu=1, workers_per_gpu=5, shuffle=False),
     test=dict(
         type="ConcatDataset",
         datasets=None,
