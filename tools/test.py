@@ -160,12 +160,14 @@ def main():
 
     rank, _ = get_dist_info()
 
+    print(get_dist_info())
+
     # For each video, create the dataloader and run the experiment.
     data_root = cfg.data.test.data_root
     out_dir = args.out_dir
     show_dir = args.show_dir
 
-    videos = sorted(os.listdir(data_root))[255:285]
+    videos = sorted(os.listdir(data_root))[350:412]
 
     for video_subdir in videos:
         # if rank == 0:

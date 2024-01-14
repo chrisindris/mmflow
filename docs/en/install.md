@@ -1,3 +1,49 @@
+# Note: To Avoid Timeouts:
+
+Ensure that ~/models/venv_mmflow/lib/python3.8/site-packages/mmcv/runner/dist_utils.py contains this:
+(Note the NCCL_BLOCKING_WAIT set and the timeout set)
+
+```python
+def _init_dist_pytorch(backend: str, **kwargs) -> None:
+    # TODO: use local_rank instead of rank % num_gpus
+
+    # added by cindris: perhaps this will help with the timeout?
+    os.environ["NCCL_BLOCKING_WAIT"] = "0"  # don't enforce timeout
+    print(os.environ["NCCL_BLOCKING_WAIT"])
+
+    rank = int(os.environ["RANK"])
+    if IS_MLU_AVAILABLE:
+        import torch_mlu  # noqa: F401
+
+        torch.mlu.set_device(rank)
+        dist.init_process_group(
+            backend="cncl",
+            timeout=dist.timedelta(seconds=7200000),
+            rank=rank,
+            world_size=int(os.environ["WORLD_SIZE"]),
+            **kwargs,
+        )
+    elif IS_NPU_AVAILABLE:
+        import torch_npu  # noqa: F401
+
+        num_npus = torch.npu.device_count()
+        torch.npu.set_device(rank % num_npus)
+        dist.init_process_group(
+            backend="hccl",
+            timeout=dist.timedelta(seconds=7200000),
+            rank=rank,
+            world_size=int(os.environ["WORLD_SIZE"]),
+            **kwargs,
+        )
+    else:
+        num_gpus = torch.cuda.device_count()
+        torch.cuda.set_device(rank % num_gpus)
+        dist.init_process_group(
+            backend=backend, timeout=dist.timedelta(seconds=7200000), **kwargs
+        )
+```
+
+
 # Prerequisites
 
 In this section we demonstrate how to prepare an environment with PyTorch.
