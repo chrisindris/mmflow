@@ -167,7 +167,7 @@ def main():
     out_dir = args.out_dir
     show_dir = args.show_dir
 
-    videos = sorted(os.listdir(data_root))[350:412]
+    videos = sorted(os.listdir(data_root))[131:132]
 
     for video_subdir in videos:
         # if rank == 0:
